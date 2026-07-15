@@ -1,0 +1,7 @@
+interface:
+  display_name: "CodexImage to Editable PPT v1"
+  short_description: "Rebuild image-based PPT/PPTX into editable decks"
+  default_prompt: "Use $codeximage-to-editable-ppt-v1 to convert image-based PPT/PPTX files or slide screenshots into a refined editable PowerPoint deck with editable text, native shapes, and separated PNG assets."
+
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.DS_Store
+Thumbs.db
+
+# Runtime queue state and generated delivery artifacts
+.serial_image_to_ppt_state.json
+serial_hook/
+*_refined_editable_output/
+*_refined_editable.pptx
+*_delivery_audit.json
+*_delivery_audit.csv
+*_refined_editable.zip

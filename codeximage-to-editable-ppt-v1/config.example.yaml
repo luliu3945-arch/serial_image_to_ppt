@@ -1,0 +1,23 @@
+render:
+  dpi: 300
+
+segmentation:
+  granularity: fine
+  min_element_area: auto
+  text_first: true
+  export_plain_background: true
+
+ocr:
+  enabled: true
+  language: chi_sim+eng
+  confidence_threshold: 75
+
+recompose:
+  editable_text: true
+  preserve_text_png_backup: true
+  default_font_family: Arial
+
+quality_check:
+  enabled: true
+  generate_review_overlays: true
+  generate_diff_images: true

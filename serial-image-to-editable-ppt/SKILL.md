@@ -1,0 +1,187 @@
+---
+name: serial-image-to-editable-ppt
+description: Strictly serial orchestration for rebuilding numbered slide screenshots into refined editable PPTX files. Use when Codex must require a user-provided source image address before creating any hook, process a page range one image at a time, take the next numbered image only after the current slide passes visual, structural, manifest, and bounds QA, resume safely after interruptions, preserve baseline evidence, audit and package all decks, and remove the temporary queue state.
+---
+
+# Serial Image to Editable PPT
+
+Rebuild a numbered image sequence into separate editable PPTX files with a hard one-page-at-a-time gate. Reuse `codeximage-to-editable-ppt-v1` for slide reconstruction; this skill supplies queue control, naming, QA, resumption, audit, packaging, and cleanup.
+
+## Required companion skill
+
+Locate and read `codeximage-to-editable-ppt-v1/SKILL.md` before rebuilding the first page. Follow its refined editable rebuild rules: preserve complex visual regions as tightly cropped independent PNGs, recreate text and simple geometry as native PowerPoint objects, export a full-slide preview, and iterate visually.
+
+If the companion skill is unavailable, stop and report the missing dependency. Do not silently replace the refined rebuild with a full-slide background image.
+
+## Pre-hook source-address gate
+
+Do not create, initialize, restore, or infer a hook/queue until the user explicitly provides one of these:
+
+- an absolute path to the directory containing the numbered source images; or
+- an absolute path to one numbered source image supplied in the current request.
+
+An attachment with an exposed absolute local path counts as user-provided. A path remembered from another task, inferred from the current working directory, found by broad filesystem search, or copied from an unrelated earlier workflow does not count.
+
+If the current request lacks a source address, stop before any queue mutation and ask only for the image directory or image path. Use this prompt:
+
+```text
+请先提供待处理图片所在目录，或任意一张编号图片的绝对路径；收到并验证路径后我再创建串行 hook。
+```
+
+Validate that the supplied path exists and is readable. If it is a file, derive the source directory from its parent and infer the filename pattern only when the filename contains an unambiguous page number. If the path or numbering is ambiguous, ask for correction. Show the discovered `1 → N` range before initializing the hook. Never create a placeholder hook while waiting for the path.
+
+## Inputs and naming
+
+After the source-address gate passes, collect or infer:
+
+- source directory;
+- inclusive start and end page numbers; default to page `1` through the highest discovered page;
+- filename pattern, default `page_{page}.png`;
+- output directory;
+- processing order: always ascending `1 → N`, or ascending within an explicitly requested subset.
+
+Use these output names:
+
+- final deck: `page_<N>_refined_editable.pptx`;
+- evidence bundle: `page_<N>_refined_editable_output/`;
+- temporary baseline: `serial_hook/page_<N>_baseline/`;
+- queue state: `<output-dir>/.serial_image_to_ppt_state.json`.
+
+## Initialize or resume the queue
+
+Initialize once:
+
+```powershell
+python scripts/serial_queue.py init `
+  --input-dir "<source-dir>" --output-dir "<output-dir>" `
+  --pattern "page_{page}.png"
+```
+
+The command automatically discovers the highest page and creates an ascending `1 → N` queue. Pass `--start` and `--end` only for a user-requested subset or explicit alternative order.
+
+On every continuation, call `status` first and trust the state file plus filesystem rather than conversation memory:
+
+```powershell
+python scripts/serial_queue.py status --output-dir "<output-dir>"
+```
+
+If the state file is missing but final files already exist, reinitialize with `--adopt-existing`; it marks a page complete only when its deck and required QA evidence pass inspection.
+
+## Hard serial gate
+
+Process exactly the page returned by `current`:
+
+```powershell
+python scripts/serial_queue.py current --output-dir "<output-dir>"
+```
+
+Never build, crop, preview, or QA the next page while the current page is unresolved. Parallel work and subagents are forbidden unless the user explicitly overrides serial execution.
+
+For each page, perform the following sequence.
+
+### 1. Inspect the source
+
+View the source at original detail. Identify:
+
+- editable titles, labels, descriptions, tables, lines, borders, arrows, and color blocks;
+- complex photos, software screenshots, icons, barcodes, diagrams, and device renders to crop;
+- slide dimensions and repeated footer/header patterns.
+
+### 2. Run baseline decomposition
+
+Use the wrapper to invoke the companion skill's batch runner with one input and one worker:
+
+```powershell
+python scripts/run_baseline.py `
+  --input "<source-file>" `
+  --outdir "<output-dir>/serial_hook/page_<N>_baseline"
+```
+
+Do not enable LibreOffice-dependent quality checks when LibreOffice is unavailable.
+
+Copy the baseline item into the refined output bundle. Preserve its original manifests as:
+
+- `baseline_visual_elements_manifest.json`;
+- `baseline_visual_elements_manifest.csv`.
+
+### 3. Build the refined editable slide
+
+Use artifact-tool through the presentations runtime. Build a single-slide deck at the source aspect ratio.
+
+- Crop complex visuals tightly and store them under `split_png_elements/image01/`.
+- Recreate all practical text as editable text boxes.
+- Recreate simple lines, arrows, cards, tables, dividers, status marks, and blocks as native shapes.
+- Add meaningful alt text to every inserted image.
+- Record every final element in `visual_elements_manifest.json` and CSV.
+- Save the final deck both at the output root and inside its evidence bundle.
+
+Read [references/rebuild-contract.md](references/rebuild-contract.md) before writing a new per-page builder or when a build/export issue occurs.
+
+### 4. Preview and iterate
+
+Export a full-slide PNG at source dimensions and inspect it at original detail. Fix visible defects such as:
+
+- wrong wrapping or auto-fit;
+- clipped text;
+- stretched crops;
+- incorrect symbols or emoji substitutions;
+- uneven card spacing;
+- missing connectors;
+- poor alignment against the source.
+
+Do not accept a page merely because the export command produced a file.
+
+### 5. Run the page gate
+
+Generate the QA evidence and inspect the PPTX:
+
+```powershell
+python scripts/qa_page.py `
+  --page <N> --source "<source-file>" --preview "<preview.png>" `
+  --pptx "<output-dir>/page_<N>_refined_editable.pptx" `
+  --bundle "<output-dir>/page_<N>_refined_editable_output"
+```
+
+The page passes only when all are true:
+
+- the PPTX opens and contains exactly one slide;
+- it contains editable text and independent pictures;
+- manifest count equals actual shape count;
+- no manifest element is outside the source canvas;
+- overlay, preview, original, recomposed, diff, and QA JSON exist;
+- full-size visual inspection is acceptable.
+
+Mark the page complete only after the gate passes:
+
+```powershell
+python scripts/serial_queue.py pass --output-dir "<output-dir>" --page <N>
+```
+
+If it fails, keep the same current page, record the reason, repair, and rerun:
+
+```powershell
+python scripts/serial_queue.py fail --output-dir "<output-dir>" --page <N> --reason "<concise reason>"
+```
+
+## Final audit and package
+
+After `current` reports no remaining page, audit the entire inclusive range:
+
+```powershell
+python scripts/audit_delivery.py `
+  --output-dir "<output-dir>" --start 1 --end <N> --create-zip
+```
+
+The audit must pass every page. It writes JSON and CSV audit manifests and a ZIP containing every individual PPTX plus both audit files.
+
+Then clean the temporary hook/state:
+
+```powershell
+python scripts/serial_queue.py clean --output-dir "<output-dir>"
+```
+
+`clean` must refuse to run while any page is pending. Keep baseline and QA evidence unless the user explicitly asks to delete it; only remove the queue state hook.
+
+## User updates
+
+At the start of each page, state the page being processed. After it passes, report object, text, picture, and bounds counts, then name the next page. On completion, report the audited page count, totals, ZIP location, audit locations, and that the hook was removed.

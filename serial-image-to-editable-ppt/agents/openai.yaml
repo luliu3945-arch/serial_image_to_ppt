@@ -1,0 +1,4 @@
+interface:
+  display_name: "串行图片转可编辑PPT"
+  short_description: "严格串行重建图片幻灯片，逐页完成可编辑化、预览、QA、续跑与最终交付审计"
+  default_prompt: "使用 $serial-image-to-editable-ppt，将我提供的图片绝对路径作为输入，验证地址后再创建 hook，并按 1 到 N 逐张重建为可编辑 PPTX。"
