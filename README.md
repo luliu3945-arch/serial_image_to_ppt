@@ -2,7 +2,7 @@
 
 面向 Codex 的“image图批量重建为可编辑 PowerPoint”工作流。
 
-它会严格按照页码顺序，一次只处理一张截图；当前页完成视觉、结构、元素清单和页面边界检查后，才继续下一页。任务中断后可以从已保存的队列状态恢复，全部完成后会生成审计结果和交付包，并清理临时 hook。
+它会严格按照页码顺序，一次只处理一张截图；当前页完成 artifact 预览、真实 PowerPoint 预览、结构、元素清单和页面边界检查后，才继续下一页。任务中断后可以从已保存的队列状态恢复，全部完成后会生成审计结果和交付包，可按顺序合并为一个 PPTX，并清理临时 hook。
 
 ## 适合什么场景
 
@@ -12,6 +12,7 @@
 - 按页串行处理，避免同一种错误连续污染几十页
 - 中断后继续，不重做已经验收通过的页面
 - 将生成的页面按顺序追加到已有 PPTX
+- 使用 PowerPoint 原生插入将全部已验收单页合并为一个有序、可编辑的 PPTX
 
 ## 工作方式
 
@@ -26,11 +27,15 @@
         ↓
 基础拆解 → 精修可编辑重建
         ↓
+artifact 预览 → 真实 PowerPoint 预览
+        ↓
 视觉、结构、清单、边界检查
         ↓
 通过后领取下一页
         ↓
 全量审计与打包
+        ↓
+按需合并为一个 PPTX
         ↓
 清理临时 hook
 ```
@@ -41,6 +46,7 @@
 
 ```text
 .
+├─ AGENTS.md
 ├─ README.md
 ├─ serial-image-to-editable-ppt/
 │  ├─ SKILL.md
@@ -56,10 +62,12 @@
 
 本仓库包含两个 skill：
 
-- `serial-image-to-editable-ppt`：负责串行队列、恢复、QA、审计、打包和清理。
+- `serial-image-to-editable-ppt`：负责串行队列、恢复、QA、审计、打包、合并和清理。
 - `codeximage-to-editable-ppt-v1`：负责单页截图的精修可编辑重建。
 
 两个文件夹需要一起安装。
+
+如果要让全新的智能体直接接手仓库，请先让它读取根目录 [AGENTS.md](AGENTS.md)。该文件包含强制串行门禁、真实 PowerPoint 验收、失败恢复、最终审计、合并和 hook 清理规则。
 
 ## 安装
 
@@ -145,7 +153,8 @@ D:\PPT截图\物流培训课件
 
 请识别 page_1.png 到最大页码，按照 1 到 N 的顺序严格串行处理。
 每次只制作一页；当前页完成视觉、结构、清单和边界检查后，才能处理下一页。
-全部完成后运行总审计、生成交付包，并清理临时 hook。
+每页必须先做 artifact 预览，再做真实 PowerPoint 预览并运行 QA。
+全部完成后运行总审计、生成交付包，按顺序合并为一个 PPTX，并清理临时 hook。
 ```
 
 skill 必须先收到用户提供的真实图片地址，才会创建 hook。它不会通过全盘搜索猜测输入目录。
@@ -161,6 +170,21 @@ skill 必须先收到用户提供的真实图片地址，才会创建 hook。它
 输出目录：D:\PPT成品\物流培训课件_可编辑版
 只处理第 5 页到第 12 页，按照页码升序严格串行执行。
 ```
+
+## 合并为一个 PPTX
+
+全部单页通过总审计后，可以使用仓库脚本按页码升序合并：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File `
+  serial-image-to-editable-ppt/scripts/merge_delivery.ps1 `
+  -OutputDir "D:\PPT成品\物流培训课件_可编辑版" `
+  -Start 1 -End 48 `
+  -OutputFile "D:\PPT成品\物流培训课件_48页合并版.pptx" `
+  -PreviewDir "D:\PPT成品\物流培训课件_合并预览"
+```
+
+脚本使用 PowerPoint 原生插入方式保留可编辑对象，并验证合并页数。建议检查导出的全部预览，确认第 `N` 页仍对应 `page_N_refined_editable.pptx`。
 
 ## 追加到已有 PPTX
 
@@ -226,6 +250,8 @@ page_1_refined_editable_output/
 
 全部完成后会生成总审计 JSON、CSV 和交付 ZIP。
 
+如果用户要求一个完整课件，还会生成按页码合并的可编辑 PPTX。单页文件和 QA 证据仍会保留，便于定位和返修。
+
 ## 为什么不是所有内容都变成文字和形状
 
 这个工作流追求“可编辑性”和“视觉还原度”的平衡：
@@ -256,11 +282,15 @@ page_1_refined_editable_output/
 
 每页都会经历拆解、重建、渲染和检查。复杂图表、软件界面和设备图片较多时，需要更长时间。
 
+### 总审计为什么提示缺少 baseline manifest
+
+基础拆解的清单位于嵌套批次目录。每页 baseline 完成后必须运行 `stage_baseline_evidence.py`，把 JSON 和 CSV 清单归档到 refined bundle。审计失败时不要清理 hook，应先按照审计 JSON 的 `missing_artifacts` 补齐文件并重跑全量审计。
+
 ## 最简使用口诀
 
 ```text
 安装两个 skill → 重启 Codex → 准备 page_1 到 page_N
 → 提供绝对路径 → 粘贴提示词 → 等待逐页验收
-→ 获取 PPTX、质量证据和交付 ZIP
+→ 获取单页 PPTX、合并 PPTX、质量证据和交付 ZIP
 ```
 

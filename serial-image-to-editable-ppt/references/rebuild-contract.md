@@ -29,6 +29,13 @@ page_<N>_refined_editable_output/
 - Do not include editable labels or surrounding card borders inside a crop unless they are inseparable from a complex screenshot.
 - Preserve aspect ratio with `fit: contain`; never stretch.
 
+## Baseline evidence policy
+
+- Run `stage_baseline_evidence.py` immediately after baseline decomposition.
+- Do not rely on a human to locate and rename nested batch manifests.
+- Verify both staged files are non-empty before refined QA.
+- A page is not delivery-complete without `baseline_visual_elements_manifest.json` and CSV in its refined bundle.
+
 ## Editable object policy
 
 - Rebuild titles, labels, prose, scores, table text, footer text, and page numbers as text boxes.
@@ -56,6 +63,14 @@ Manifest count must equal actual shape count in the final PPTX.
 - Rebuild from the per-page source script after every layout correction.
 - Do not use a full-slide background image as the final deliverable.
 
+## Acceptance renderer
+
+- Inspect the artifact-tool preview during iteration.
+- When Microsoft PowerPoint is available, export a second preview through PowerPoint at source dimensions.
+- Use the PowerPoint export as the final `qa_page.py` preview.
+- Fix renderer-specific wrapping, clipping, connector, font, and symbol defects before `pass`.
+- Prefer explicit elbow segments over negative-height diagonal line bounds when a rising connector renders incorrectly.
+
 ## Visual review checklist
 
 - Compare the entire slide, not isolated crops.
@@ -67,3 +82,9 @@ Manifest count must equal actual shape count in the final PPTX.
 - Check image aspect ratios and whitespace around crops.
 - Re-export after every correction.
 
+## Ordered merge policy
+
+- Merge individual page decks only after the complete delivery audit passes.
+- Use PowerPoint native slide insertion to preserve editable objects and embedded resources.
+- Do not concatenate raw artifact-tool protos from independently generated decks; slide and media IDs may repeat.
+- After merge, assert the expected slide count and export all merged slides to verify order and visual preservation.

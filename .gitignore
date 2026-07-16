@@ -11,3 +11,5 @@ serial_hook/
 *_delivery_audit.json
 *_delivery_audit.csv
 *_refined_editable.zip
+*_merged_editable.pptx
+merged_preview/
