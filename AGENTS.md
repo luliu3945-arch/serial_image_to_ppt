@@ -108,9 +108,13 @@ powershell -ExecutionPolicy Bypass -File merge_delivery.ps1 `
 Before committing changes:
 
 ```powershell
+python scripts/doctor.py --json
 python -m compileall serial-image-to-editable-ppt/scripts
+python -m compileall codeximage-to-editable-ppt-v1/scripts scripts
 python <skill-creator>/scripts/quick_validate.py serial-image-to-editable-ppt
 python <skill-creator>/scripts/quick_validate.py codeximage-to-editable-ppt-v1
 ```
+
+When setup, dependency, or installation behavior changes, parse `setup.ps1`, run `doctor.py` from an isolated Python environment with all root requirements installed, and verify an installation into a disposable skill root. The documented current user skill location is `$HOME/.agents/skills`; keep legacy `.codex/skills` discovery only for backward compatibility.
 
 Test new deterministic scripts on a small disposable page range. Keep generated PPTX files, queue state, previews, and audit outputs outside the repository.

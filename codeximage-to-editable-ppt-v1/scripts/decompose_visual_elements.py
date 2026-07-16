@@ -131,6 +131,13 @@ def run(cmd: List[str], cwd: Optional[Path] = None, check: bool = True) -> subpr
     return proc
 
 
+def libreoffice_command() -> str:
+    executable = shutil.which("libreoffice") or shutil.which("soffice")
+    if not executable:
+        raise RuntimeError("LibreOffice was not found on PATH (expected libreoffice or soffice).")
+    return executable
+
+
 def safe_mkdir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
@@ -271,7 +278,7 @@ def render_pptx_to_pngs(input_path: Path, outdir: Path, dpi: int) -> List[Path]:
     safe_mkdir(outdir)
     with tempfile.TemporaryDirectory() as td:
         tmp = Path(td)
-        run(["libreoffice", "--headless", "--convert-to", "pdf", "--outdir", str(tmp), str(input_path)])
+        run([libreoffice_command(), "--headless", "--convert-to", "pdf", "--outdir", str(tmp), str(input_path)])
         pdfs = sorted(tmp.glob("*.pdf"))
         if not pdfs:
             raise RuntimeError("LibreOffice did not produce a PDF. Is LibreOffice installed?")
@@ -1025,7 +1032,11 @@ def render_pptx_for_quality(pptx_path: Path, outdir: Path, dpi: int = 150) -> Li
     safe_mkdir(outdir)
     with tempfile.TemporaryDirectory() as td:
         tmp = Path(td)
-        proc = run(["libreoffice", "--headless", "--convert-to", "pdf", "--outdir", str(tmp), str(pptx_path)], check=False)
+        try:
+            office = libreoffice_command()
+        except RuntimeError:
+            return []
+        proc = run([office, "--headless", "--convert-to", "pdf", "--outdir", str(tmp), str(pptx_path)], check=False)
         if proc.returncode != 0:
             return []
         pdfs = sorted(tmp.glob("*.pdf"))

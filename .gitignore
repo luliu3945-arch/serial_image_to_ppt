@@ -2,6 +2,8 @@ __pycache__/
 *.py[cod]
 .DS_Store
 Thumbs.db
+.venv/
+runtime.json
 
 # Runtime queue state and generated delivery artifacts
 .serial_image_to_ppt_state.json

@@ -13,6 +13,22 @@ Locate and read `codeximage-to-editable-ppt-v1/SKILL.md` before rebuilding the f
 
 If the companion skill is unavailable, stop and report the missing dependency. Do not silently replace the refined rebuild with a full-slide background image.
 
+## Environment preflight
+
+Before initializing the first queue on a machine, locate `runtime.json` beside this `SKILL.md` when it exists. Use its absolute `python` value for every script command instead of an arbitrary `python` on `PATH`. The repository installer writes this file after creating the tested virtual environment.
+
+If `runtime.json` is absent, require Python 3.10+ and verify that `opencv-python`, `numpy`, `pillow`, `python-pptx`, `pytesseract`, and `PyYAML` import successfully. When the repository checkout is available, run `scripts/doctor.py --strict` from the repository root. Stop before queue creation if core Python packages or the companion skill are missing.
+
+Treat environment features by input and acceptance mode:
+
+- image-only baseline work does not require LibreOffice or Poppler;
+- OCR requires the external Tesseract executable and suitable languages such as `eng` and `chi_sim`, not only the `pytesseract` Python package;
+- PPT/PPTX/PDF source conversion requires LibreOffice plus `pdftoppm`;
+- true PowerPoint previews and `merge_delivery.ps1` require Windows with Microsoft PowerPoint desktop/COM;
+- artifact-tool comes from the Codex presentations runtime and must not be replaced with an unrelated npm package.
+
+If an optional capability is unavailable, state the reduced verification level. Do not claim true-PowerPoint acceptance or COM merge without PowerPoint.
+
 ## Pre-hook source-address gate
 
 Do not create, initialize, restore, or infer a hook/queue until the user explicitly provides one of these:

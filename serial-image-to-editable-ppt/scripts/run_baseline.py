@@ -8,11 +8,22 @@ from pathlib import Path
 
 
 def companion_root() -> Path:
+    override = os.environ.get("SERIAL_IMAGE_TO_PPT_COMPANION")
+    candidates = []
+    if override:
+        candidates.append(Path(override).expanduser())
+    # The normal installation keeps both skills beside each other.
+    candidates.append(Path(__file__).resolve().parents[2] / "codeximage-to-editable-ppt-v1")
+    # Current Codex user-skill location, followed by legacy compatibility paths.
+    candidates.append(Path.home() / ".agents" / "skills" / "codeximage-to-editable-ppt-v1")
     codex_home = Path(os.environ.get("CODEX_HOME", Path.home() / ".codex"))
-    root = codex_home / "skills" / "codeximage-to-editable-ppt-v1"
-    if not root.exists():
-        raise SystemExit(f"Missing companion skill: {root}")
-    return root
+    candidates.append(codex_home / "skills" / "codeximage-to-editable-ppt-v1")
+    candidates.append(Path.home() / ".codex" / "skills" / "codeximage-to-editable-ppt-v1")
+    for root in candidates:
+        if (root / "SKILL.md").is_file():
+            return root
+    searched = "\n  - ".join(str(path) for path in candidates)
+    raise SystemExit(f"Missing companion skill. Searched:\n  - {searched}")
 
 
 def main() -> None:
@@ -52,4 +63,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
